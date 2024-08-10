@@ -1,9 +1,12 @@
 "use strict";
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../database");
+const bcrypt = require("bcryptjs");
+const { promisify } = require("util");
 
 module.exports = sequelize.define(
   "user",
+
   {
     id: {
       allowNull: false,
@@ -22,9 +25,21 @@ module.exports = sequelize.define(
     },
     email: {
       type: DataTypes.STRING,
+      unique: true,
     },
     password: {
       type: DataTypes.STRING,
+    },
+    confirmPassword: {
+      type: DataTypes.VIRTUAL,
+      set(value) {
+        if (value === this.password) {
+          const hashedPassword = bcrypt.hashSync(value, 10);
+          this.setDataValue("password", hashedPassword);
+        } else {
+          throw new Error("password do not match.");
+        }
+      },
     },
     createdAt: {
       allowNull: false,
