@@ -1,19 +1,17 @@
 const express = require("express");
-
 const app = express();
 const authRouter = require("./routes/authRoutes");
+const AppError = require("./utils/appError");
+const globalErrorHandler = require("./controllers/errorController");
+
+app.use(express.json({ limit: "10kb" }));
 
 app.use("/api/v1/auth", authRouter);
 
-app.get("*", (req, res) => {
-  res.status(404).json({
-    status: "fail",
-    message: "route not found!",
-  });
+app.use("*", (req, res, next) => {
+  throw new AppError(`can't find ${req.originalUrl} on this server.`, 404);
 });
 
-const PORT = process.env.PORT || 3000;
+app.use(globalErrorHandler);
 
-app.listen(PORT, () => {
-  console.log(`server running on port ${PORT}`);
-});
+module.exports = app;
