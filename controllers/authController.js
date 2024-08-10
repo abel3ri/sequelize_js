@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const bcyrpt = require("bcryptjs");
 const catchAsync = require("../utils/catchAsync");
 const User = require("../db/models/user");
+const AppError = require("../utils/appError");
 
 const generateToken = (payload) => {
   return jwt.sign(
@@ -18,6 +19,7 @@ const generateToken = (payload) => {
 const signup = catchAsync(async (req, res, next) => {
   const { userType, firstName, lastName, email, password, confirmPassword } = req.body;
 
+  // check if the userType is in ["1", "2"]
   if (!["1", "2"].includes(userType)) {
     return res.status(400).json({
       status: "fail",
@@ -25,6 +27,7 @@ const signup = catchAsync(async (req, res, next) => {
     });
   }
 
+  // create new user and save it to database
   const newUser = await User.create({
     userType,
     firstName,
@@ -34,17 +37,16 @@ const signup = catchAsync(async (req, res, next) => {
     confirmPassword,
   });
 
+  // remove password and deletedAt properties before sending user data
   const user = newUser.toJSON();
   delete user.password;
   delete user.deletedAt;
 
   if (!user) {
-    return res.status(400).json({
-      status: "fail",
-      message: "failed to create a user",
-    });
+    return next(new AppError("failed to create a user", 400));
   }
 
+  // generate token and send it to the newly created user
   const token = generateToken(user.id);
 
   res.status(201).json({
@@ -59,10 +61,7 @@ const login = catchAsync(async (req, res, next) => {
 
   // check is the body contains email and password
   if (!email || !password) {
-    return res.status(400).json({
-      status: "fail",
-      message: "please provide email and password",
-    });
+    return next(new AppError("please provide email and password", 400));
   }
 
   // find a user with the provided email
@@ -74,10 +73,7 @@ const login = catchAsync(async (req, res, next) => {
 
   // check if user exists and the password is correct
   if (!user || !(await bcyrpt.compare(password, user.password))) {
-    return res.status(401).json({
-      status: "fail",
-      message: "incorrect email or password",
-    });
+    return next(new AppError("incorrect email or password", 401));
   }
 
   const token = generateToken(user.id);
