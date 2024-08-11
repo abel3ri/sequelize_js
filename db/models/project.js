@@ -7,9 +7,9 @@ module.exports = sequelize.define(
   {
     id: {
       allowNull: false,
-      autoIncrement: true,
       primaryKey: true,
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
     },
     title: {
       type: DataTypes.STRING,
@@ -103,8 +103,8 @@ module.exports = sequelize.define(
       type: DataTypes.ARRAY(DataTypes.STRING),
     },
     createdBy: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
+      type: DataTypes.UUID,
+      allowNull: false,
       references: {
         model: "user",
         key: "id",
