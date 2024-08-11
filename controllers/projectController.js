@@ -39,7 +39,7 @@ const getAllProjects = catchAsync(async (req, res, next) => {
   });
 });
 
-const getProject = catchAsync(async (req, res, next) => {
+const getProjectById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
   const project = await Project.findByPk(id);
   res.status(200).json({
@@ -51,5 +51,5 @@ const getProject = catchAsync(async (req, res, next) => {
 module.exports = {
   createProject,
   getAllProjects,
-  getProject,
+  getProjectById,
 };
