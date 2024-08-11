@@ -39,9 +39,10 @@ const globalErrorHandler = (err, req, res, next) => {
     const errorMsgs = err.errors.map((e) => e.message).join(", ");
     err = new AppError(errorMsgs, 400);
   } else if (err.name === "SequelizeValidationError") {
-    console.log(err.errors);
     const errorMsgs = err.errors.map((e) => e.message).join(", ");
     err = new AppError(errorMsgs, 400);
+  } else if (err.name === "JsonWebTokenError") {
+    err = new AppError("invalid token", 400);
   }
   if (process.env.NODE_ENV == "development") {
     return sendErrorDev(err, res);
