@@ -41,7 +41,14 @@ const getAllProjects = catchAsync(async (req, res, next) => {
 
 const getProjectById = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  const project = await Project.findByPk(id);
+  const project = await Project.findByPk(id, {
+    include: {
+      model: User,
+      attributes: {
+        exclude: ["password", "passwordChangedAt", "deletedAt"],
+      },
+    },
+  });
   res.status(200).json({
     status: "success",
     data: project,
