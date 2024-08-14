@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const bcyrpt = require("bcryptjs");
+const { promisify } = require("util");
 const catchAsync = require("../utils/catchAsync");
 const User = require("../db/models/user");
 const AppError = require("../utils/appError");
@@ -20,11 +20,8 @@ const signup = catchAsync(async (req, res, next) => {
   const { userType, firstName, lastName, email, password, confirmPassword } = req.body;
 
   // check if the userType is in ["1", "2"]
-  if (!["1", "2"].includes(userType)) {
-    return res.status(400).json({
-      status: "fail",
-      message: "invalid user type",
-    });
+  if (!["buyer", "seller"].includes(userType)) {
+    return next(new AppError("invalid userType"));
   }
 
   // create new user and save it to database
@@ -52,7 +49,7 @@ const signup = catchAsync(async (req, res, next) => {
   res.status(201).json({
     status: "success",
     token,
-    data: user,
+    user,
   });
 });
 
@@ -65,27 +62,74 @@ const login = catchAsync(async (req, res, next) => {
   }
 
   // find a user with the provided email
-  const user = await User.findOne({
+  const result = await User.findOne({
     where: {
       email,
+    },
+    attributes: {
+      exclude: ["deletedAt", "passwordChangedAt"],
     },
   });
 
   // check if user exists and the password is correct
-  if (!user || !(await bcyrpt.compare(password, user.password))) {
+  if (!result || !(await result.validatePassword(password))) {
     return next(new AppError("incorrect email or password", 401));
   }
 
-  const token = generateToken(user.id);
+  const user = result.toJSON();
+
+  delete user.password;
+
+  const token = generateToken(result.id);
 
   res.status(200).json({
     status: "success",
     token,
-    message: "login route",
+    user,
   });
 });
+
+const authenticate = catchAsync(async (req, res, next) => {
+  // check if the header contains authorization and if so starts with 'Bearer'
+  if (!(req.headers.authorization && req.headers.authorization.startsWith("Bearer"))) {
+    return next(new AppError("please login to get access", 401));
+  }
+
+  // decode the token
+  const token = req.headers.authorization.split(" ")[1];
+
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET_KEY);
+
+  const user = await User.findByPk(decoded.id);
+
+  // find the user belonging to the token
+  if (!user) {
+    return next(new AppError("the user belonging to this token no longer exists", 401));
+  }
+
+  // check if the user does not changed password after the token has been issued
+  if (user.passwordChangedAfter(decoded.iat)) {
+    return next(new AppError("user recently changed password. please login again"), 401);
+  }
+
+  // set user property on the req object
+  req.user = user.toJSON();
+
+  return next();
+});
+
+const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.userType)) {
+      return next(new AppError("you don't have permission to perform this action", 403));
+    }
+    return next();
+  };
+};
 
 module.exports = {
   signup,
   login,
+  authenticate,
+  restrictTo,
 };

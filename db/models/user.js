@@ -3,18 +3,19 @@ const { DataTypes } = require("sequelize");
 const sequelize = require("../../database");
 const bcrypt = require("bcryptjs");
 const AppError = require("../../utils/appError");
+const Project = require("./project");
 
-module.exports = sequelize.define(
+const User = sequelize.define(
   "user",
   {
     id: {
       allowNull: false,
-      autoIncrement: true,
       primaryKey: true,
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
     },
     userType: {
-      type: DataTypes.ENUM("0", "1", "2"),
+      type: DataTypes.ENUM("admin", "buyer", "seller"),
       allowNull: false,
       validate: {
         notNull: {
@@ -90,6 +91,9 @@ module.exports = sequelize.define(
         }
       },
     },
+    passwordChangedAt: {
+      type: DataTypes.DATE,
+    },
     createdAt: {
       allowNull: false,
       type: DataTypes.DATE,
@@ -108,3 +112,29 @@ module.exports = sequelize.define(
     freezeTableName: true,
   }
 );
+
+// instance methods
+User.prototype.validatePassword = async function (password) {
+  if (!(await bcrypt.compare(password, this.password))) {
+    return false;
+  }
+  return true;
+};
+
+User.prototype.passwordChangedAfter = function (JWTTimeStamp) {
+  if (this.passwordChangedAt) {
+    return JWTTimeStamp < parseInt(this.passwordChangedAt.getTime() / 1000);
+  }
+
+  return false;
+};
+
+User.hasMany(Project, {
+  foreignKey: "createdBy",
+});
+
+Project.belongsTo(User, {
+  foreignKey: "createdBy",
+});
+
+module.exports = User;
